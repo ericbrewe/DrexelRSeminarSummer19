@@ -35,7 +35,11 @@ FullData %>%
 
 FullData %>%
   filter(PrePost != "NA") %>%
-  ggplot(aes(x=Scr)) + geom_histogram() + facet_grid(. ~ PrePost)
+  ggplot(aes(x=Scr)) + geom_histogram() + scale_x_log10()  + facet_grid(. ~ PrePost)
+
+FullData %>%
+  filter(PrePost != "NA") %>%
+  ggplot(aes(x=PrePost, y = Scr)) + geom_boxplot() 
 ```
 Well that is even uglier...these puppies are not normally distributed, if it were close, I might do a qq plot.  But for these we do not need to. 
 
@@ -76,7 +80,7 @@ One of the benefits of splitting your data is now you can do a scatterplot, whic
 
 ScatterPlot = ggplot(data = PrePostDf, mapping =  aes(x = Scr.x, y = Scr.y))
   
-ScatterPlot = ScatterPlot + geom_point()
+ScatterPlot = ScatterPlot + geom_jitter()
 
 ScatterPlot = ScatterPlot + geom_abline()
 
@@ -89,7 +93,7 @@ So now we should be able to do this t-test
 
 ```{r ttestV2, echo=FALSE}
 
-res <- t.test(PrePostDf$Scr.x, PrePostDf$Scr.y, paired = TRUE)
+res <- t.test(PrePostDf$Scr.y, PrePostDf$Scr.x, paired = TRUE)
 res
 ```
 So what did it do with all those NAs?  That might be important...
@@ -149,6 +153,10 @@ WilRes = wilcox.test(PrePostDf$Scr.x, PrePostDf$Scr.y, paired = T)
 
 WilRes
 
+
+WilRes3 = wilcox.test(PrePostNoNA$Scr.x, PrePostNoNA$Scr.y, paired = T)
+
+WilRes3
 
 ```
 So we can safely reject the null hypothesis that the scores on the pre and the post are the same. 
