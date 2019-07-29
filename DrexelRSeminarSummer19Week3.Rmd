@@ -1,0 +1,157 @@
+---
+title: "DrexelRSeminarSummer19Week3"
+author: "Eric Brewe"
+date: "7/28/2019"
+output: html_document
+---
+Ok, this will set up the environment and load in our cleaned data from last time. 
+
+```{r setup, include=FALSE}
+pacman::p_load(here, tidyverse, lubridate, lsr)
+
+FullData = readRDS(file = "data/CleanTestData.Rda")
+
+```
+Alright, the goal is to compare means on the Scr variable using the categorical variable (Breakfast). So we will need to do an Anova. We alredy know that the Scr variable is not normal, so we will proceed with caution. First, lets get our data into a format that allows us to 
+
+```{r AnovaData, include= F} 
+
+FullData %>%
+  select(ID,PrePost,Scr,Breakfast) %>%
+  filter(PrePost == "Pre") -> PreDf
+
+FullData %>%
+  select(ID,PrePost,Scr, Breakfast) %>%
+  filter(PrePost == "Post") -> PostDf
+
+PrePostDf = left_join(PreDf, PostDf, by = "ID", suffix = c("","Post"))
+
+```
+
+
+
+```{r AnovaPre, include=FALSE}
+
+ScrAnovaPre = aov(Scr ~ Breakfast, data = PrePostDf)
+
+summary(ScrAnovaPre)
+
+```
+
+```{r AnovaPost, include=FALSE}
+
+ScrAnovaPost = aov(ScrPost ~ BreakfastPost, data = PrePostDf)
+
+summary(ScrAnovaPost)
+
+
+
+```
+
+based on this, it doesn't appear that we can reject the null hypothesis that there are differences based on the grouping variable Breakfast - which is not a surprise, I randomly assigned the variable.
+
+
+```{r AnovaByModel, include=FALSE}
+
+AnovaLMPre = lm(PrePostDf$Scr ~ PrePostDf$Breakfast)
+
+summary(AnovaLMPre)
+
+```
+Notice that the F-statistic is 0.342, and p = 0.7108, this is the exact same as when we did this with the aov command!!!  Hooray 
+
+Now, we are not able to reject the null hypothesis, so maybe we should think about a different meal (lunch).  I'll generate a new term to get a data set that has a difference.
+
+
+```{r AnovaData, include= F} 
+
+FullData %>%
+  filter(PrePost == "Pre") %>%
+  select(ID,Scr) %>%
+  mutate(Lunch = ntile(Scr, 3)) %>%
+  mutate(Lunch = case_when(Lunch == 1 ~ "Ham",
+                           Lunch == 2 ~ "PeanutButter",
+                           Lunch == 3 ~ "Tacos")) ->PreDf
+  
+
+FullData %>%
+  filter(PrePost == "Post") %>%
+  select(ID,Scr) %>%
+  mutate(Lunch = ntile(Scr, 3)) %>%
+  mutate(Lunch = case_when(Lunch == 1 ~ "Ham",
+                           Lunch == 2 ~ "PeanutButter",
+                           Lunch == 3 ~ "Tacos")) ->PostDf
+
+PrePostDf = left_join(PreDf, PostDf, by = "ID", suffix = c("","Post"))
+
+```
+
+
+
+```{r AnovaPreLunch, include=FALSE}
+
+ScrAnovaPre = aov(Scr ~ Lunch, data = PrePostDf)
+
+summary(ScrAnovaPre)
+
+```
+Notice, the F is much higher, and the p is very low...we can reject the null hypotheis that there are no differences based on lunch type in the Pre data. 
+
+```{r AnovaPostLunch, include=FALSE}
+
+ScrAnovaPostLunch = aov(ScrPost ~ LunchPost, data = PrePostDf)
+
+summary(ScrAnovaPostLunch)
+
+
+
+```
+
+
+
+```{r AnovaByModelLunch, include=FALSE}
+
+AnovaLMPreLunch = lm(PrePostDf$Scr ~ PrePostDf$Lunch)
+
+summary(AnovaLMPreLunch)
+
+```
+
+```{r AnovaByModelLunch, include=FALSE}
+
+AnovaLMPostLunch = lm(PrePostDf$ScrPost ~ PrePostDf$LunchPost)
+
+summary(AnovaLMPostLunch)
+
+```
+Now, in all cases, we can say that we can reject the null hypotheis. But all that means is we know that there is difference based on Lunch.  We do not know where these differences are and we don't know how big they are. 
+
+To find where the differences are we need to do a follow up test, and to gauge the size of the effect, we need to calculate an effect size. 
+
+For now, we'll limit ourselves to the post data, just to make our lives easier.
+```{r FollowUpTukeyHSD, echo = F}
+TukeyHSD(ScrAnovaPostLunch)
+
+
+```
+Note, this gives an estimate of the differences between each of the levels in the group.  So a difference of 16.8 between Tacos and Ham
+
+```{r FollowUpAnovaLunch, echo=FALSE}
+
+summary(AnovaLMPostLunch)
+
+```
+
+So when you do a call on the linear model, you notice that the estimates are the differences between the different lunches!  And the t-value and p values tell you the extent to which you can accept the differences as due to random statistical fluctuation.  
+
+Again, we might want to be able to say how big of an effect the grouping variable has on the outcome variable, to do this, we need the effect size.  the LSR package has a good version of this. So lets call it. 
+
+```{r AnovaEtaSquared, echo= FALSE}
+etaSquared(ScrAnovaPostLunch)
+
+
+
+
+```
+
+The effect is 0.9067...this mean??? Actually an effect of 0.9 is really big. Notice it is the same as the multiple R-squared in the linear model call. This means we can say 81% of the variance in the outcome can be attributed to the Lunch that they prefer. Hooray.  There is an effect of the grouping variable, it is big, and we can tell how the different levels in the grouping variable are related to the outcome variable. 
