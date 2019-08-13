@@ -1,0 +1,46 @@
+---
+title: "DrexelRSeminarSummer19Week5"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+pacman::p_load(here, tidyverse, lubridate, lsr, broom, glmnet, caret)
+
+FullData = readRDS(file = "data/CleanTestData-Fixed.Rda")
+
+FullData %>%
+  filter(PrePost == "Post") -> PostData
+```
+
+
+This is a machine learning approach to regression...
+
+
+
+```{r RegressionML, echo=FALSE}
+
+
+PostData %>%
+  select(TotalPts:Quiz2,Scr) %>%
+  as.matrix() -> Xmat
+
+
+
+set.seed(1234)
+trControl <- trainControl(method = "cv", number = 5)
+grid <- expand.grid(alpha = 1, lambda = seq(0, 10, length = 101))
+mod <- train(Scr ~ ., Xmat, method = "glmnet", tuneGrid = grid, 
+    trControl = trControl, metric = "RMSE", preProcess = c("center", 
+        "scale"))
+plot(mod)
+
+RegParameter = mod$results$lambda[which.min(mod$results$RMSE)]
+
+Beta <- coef(mod$finalModel, RegParameter)
+R2 <- mod$results$Rsquared[which(grid$lambda == RegParameter)]
+1 - (1 - R2) * (nrow(Xmat) - 1)/(nrow(Xmat) - sum(Beta != 0) - 1)
+
+
+```
