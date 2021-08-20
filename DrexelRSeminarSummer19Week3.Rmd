@@ -17,30 +17,49 @@ Alright, the goal is to compare means on the Scr variable using the categorical 
 ```{r AnovaData, include= F} 
 
 FullData %>%
-  select(ID,PrePost,Scr,Breakfast) %>%
+  select(ID,PrePost,Scr,Breakfast, Q1, Q2) %>%
   filter(PrePost == "Pre") -> PreDf
 
 FullData %>%
-  select(ID,PrePost,Scr, Breakfast) %>%
+  select(ID,PrePost,Scr) %>%
   filter(PrePost == "Post") -> PostDf
 
 PrePostDf = left_join(PreDf, PostDf, by = "ID", suffix = c("","Post"))
 
+PrePostDf %>%
+  select(ID, Scr, ScrPost, Breakfast, Q1, Q2) %>%
+  distinct(ID, .keep_all = TRUE) -> PrePostDf
+
+ 
+#This does the same thing but is slightly less memory intensive...
+FullData %>%
+  select(ID,PrePost,Scr,Breakfast, Q1, Q2) %>%
+  mutate(Scr = as.numeric(Scr)) %>%
+  na.omit(PrePost) %>%
+  distinct(across(c(ID,PrePost)), .keep_all = TRUE) %>%
+  pivot_wider(names_from = PrePost, values_from = Scr) %>%
+  distinct(ID, .keep_all = T) -> PrePostDf2
+
+
+
+
 ```
 
-
+Since I  had two different data frames, I wanted to check that they gave the same results...They do.
 
 ```{r AnovaPre, include=FALSE}
 
 ScrAnovaPre = aov(Scr ~ Breakfast, data = PrePostDf)
+ScrAnovaPre2 = aov(Pre ~ Breakfast, data = PrePostDf2)
 
 summary(ScrAnovaPre)
+summary(ScrAnovaPre2)
 
 ```
 
 ```{r AnovaPost, include=FALSE}
 
-ScrAnovaPost = aov(ScrPost ~ BreakfastPost, data = PrePostDf)
+ScrAnovaPost = aov(ScrPost ~ Breakfast, data = PrePostDf)
 
 summary(ScrAnovaPost)
 
@@ -48,7 +67,7 @@ summary(ScrAnovaPost)
 
 ```
 
-based on this, it doesn't appear that we can reject the null hypothesis that there are differences based on the grouping variable Breakfast - which is not a surprise, I randomly assigned the variable.
+Based on this, it doesn't appear that we can reject the null hypothesis that there are differences based on the grouping variable Breakfast - which is not a surprise, I randomly assigned the variable.
 
 
 ```{r AnovaByModel, include=FALSE}
@@ -65,24 +84,19 @@ Now, we are not able to reject the null hypothesis, so maybe we should think abo
 
 ```{r AnovaData, include= F} 
 
-FullData %>%
-  filter(PrePost == "Pre") %>%
-  select(ID,Scr) %>%
-  mutate(Lunch = ntile(Scr, 3)) %>%
-  mutate(Lunch = case_when(Lunch == 1 ~ "Ham",
-                           Lunch == 2 ~ "PeanutButter",
-                           Lunch == 3 ~ "Tacos")) ->PreDf
-  
 
 FullData %>%
-  filter(PrePost == "Post") %>%
-  select(ID,Scr) %>%
-  mutate(Lunch = ntile(Scr, 3)) %>%
+  select(ID,PrePost,Scr,Breakfast, Q1, Q2) %>%
+  mutate(Scr = as.numeric(Scr)) %>%
+  na.omit(PrePost) %>%
+  distinct(across(c(ID,PrePost)), .keep_all = TRUE) %>%
+  pivot_wider(names_from = PrePost, values_from = Scr) %>%
+  distinct(ID, .keep_all = T) %>%
+  mutate(Lunch = ntile(Pre, 3)) %>%
   mutate(Lunch = case_when(Lunch == 1 ~ "Ham",
                            Lunch == 2 ~ "PeanutButter",
-                           Lunch == 3 ~ "Tacos")) ->PostDf
+                           Lunch == 3 ~ "Tacos")) ->PrePostDfLunch
 
-PrePostDf = left_join(PreDf, PostDf, by = "ID", suffix = c("","Post"))
 
 ```
 
@@ -90,7 +104,7 @@ PrePostDf = left_join(PreDf, PostDf, by = "ID", suffix = c("","Post"))
 
 ```{r AnovaPreLunch, include=FALSE}
 
-ScrAnovaPre = aov(Scr ~ Lunch, data = PrePostDf)
+ScrAnovaPre = aov(Pre ~ Lunch, data = PrePostDfLunch)
 
 summary(ScrAnovaPre)
 
@@ -99,7 +113,7 @@ Notice, the F is much higher, and the p is very low...we can reject the null hyp
 
 ```{r AnovaPostLunch, include=FALSE}
 
-ScrAnovaPostLunch = aov(ScrPost ~ LunchPost, data = PrePostDf)
+ScrAnovaPostLunch = aov(Post ~ Lunch, data = PrePostDfLunch)
 
 summary(ScrAnovaPostLunch)
 
@@ -111,7 +125,7 @@ summary(ScrAnovaPostLunch)
 
 ```{r AnovaByModelLunch, include=FALSE}
 
-AnovaLMPreLunch = lm(PrePostDf$Scr ~ PrePostDf$Lunch)
+AnovaLMPreLunch = lm(Pre ~ Lunch, data = PrePostDfLunch)
 
 summary(AnovaLMPreLunch)
 
@@ -119,7 +133,7 @@ summary(AnovaLMPreLunch)
 
 ```{r AnovaByModelLunch, include=FALSE}
 
-AnovaLMPostLunch = lm(PrePostDf$ScrPost ~ PrePostDf$LunchPost)
+AnovaLMPostLunch = lm(Post ~ Lunch, data = PrePostDfLunch)
 
 summary(AnovaLMPostLunch)
 
@@ -134,7 +148,7 @@ TukeyHSD(ScrAnovaPostLunch)
 
 
 ```
-Note, this gives an estimate of the differences between each of the levels in the group.  So a difference of 16.8 between Tacos and Ham
+Note, this gives an estimate of the differences between each of the levels in the group.  So a difference of 11.9 between Tacos and Ham
 
 ```{r FollowUpAnovaLunch, echo=FALSE}
 
@@ -154,4 +168,4 @@ etaSquared(ScrAnovaPostLunch)
 
 ```
 
-The effect is 0.9067...this mean??? Actually an effect of 0.9 is really big. Notice it is the same as the multiple R-squared in the linear model call. This means we can say 81% of the variance in the outcome can be attributed to the Lunch that they prefer. Hooray.  There is an effect of the grouping variable, it is big, and we can tell how the different levels in the grouping variable are related to the outcome variable. 
+The effect is 0.478...this means??? Actually an effect of 0.5 is pretty big. Notice it is the same as the multiple R-squared in the linear model call. This means we can say 48% of the variance in the outcome can be attributed to the Lunch that they prefer. Hooray.  There is an effect of the grouping variable, it is big, and we can tell how the different levels in the grouping variable are related to the outcome variable. 

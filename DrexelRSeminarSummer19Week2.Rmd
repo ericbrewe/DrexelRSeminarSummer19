@@ -10,7 +10,7 @@ Ok, this will set up the environment and load in our cleaned data from last time
 ```{r setup, include=FALSE}
 pacman::p_load(here, tidyverse, lubridate, lsr)
 
-FullData = readRDS(file = "data/CleanTestData.Rda")
+FullData = readRDS(file = "data/CleanTestData-Fixed.Rda")
 
 ```
 
@@ -71,7 +71,7 @@ FullData %>%
 
 PrePostDf = left_join(PreDf, PostDf, by = "ID")
 
-
+PrePostDf <- distinct(PrePostDf, ID, .keep_all = T)
 ```
 
 One of the benefits of splitting your data is now you can do a scatterplot, which is generally a wise thing; lets do this:
@@ -130,9 +130,10 @@ https://lindeloev.github.io/tests-as-linear/
 
 
 ```{r ttestv4, echo=FALSE}
+FullData %>%
+  filter (Scr  !=  "NA") -> FullDataNoNA
 
-
-SimpleLM = lm(Scr ~ PrePost, data = FullData)
+SimpleLM = lm(Scr ~ PrePost, data = FullDataNoNA)
 summary(SimpleLM)
 ```
 Note that we were able to do this without having to worry about making sure that the data frames were of the same length....But that does technically mean it is a different data set. So to get the same data set, I'll have to use the PrePostDf that I created before.  
@@ -168,5 +169,34 @@ And since it is nice to know that we can use a linear model in place of the t-te
 signed_rank = function(x) sign(x) * rank(abs(x))
 WilRes2 = lm(formula = signed_rank(Scr.y - Scr.x) ~ 1, data = PrePostDf)
 summary(WilRes2)
+```
+
+
+But just because I can reject the null, that doesn't mean that the difference in means is meaningful. Cohen's d is a way to say something about the magnitude of the differences in means between the two groups.  The definition of d is d= (PostMean - PreMean)/pooled standard deviation...Here is how you get it to run in R, note that you need to have the LSR package loaded (this is the package that comes with the book Learning Statistics With R).   Other packages have Cohen's d as well (effsize), but I am using the one in the lsr package. 
+
+```{r CohensD}
+cohensD(x= PrePostDf$Scr.x,y=PrePostDf$Scr.y)
+
+```
+
+Here we get a cohens d of 0.37, which according to cohen is a small to medium effect (though this  is really contextually dependent  - a small effect on something like curing cancer is really important, and a small effect on something like hair length might not be so important)
+
+
+
+```{r PlottingPractice}
+
+
+GoodPlot <- ggplot(FullData, aes(y = HW, x = Scr, color = Breakfast)) +
+  geom_boxplot() + 
+  theme_minimal() +
+  labs( title = "Cool Plot Bro", y = "HW Score", x = "Score on FCI") +
+  #geom_abline() +
+  scale_color_taylor(palette = "folklore") +
+  facet_grid(~Breakfast)
+  
+GoodPlot
+
+#$ggsave("GoodPlot.png", plot = GoodPlot)
+
 ```
 

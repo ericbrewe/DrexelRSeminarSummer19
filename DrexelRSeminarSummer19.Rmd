@@ -55,8 +55,8 @@ TestDf %>%
 TestDf %>%
   mutate_at(vars(starts_with("TestQ")), list(~str_extract(., "[A-E]"))) ->TestDf
 
-
-
+TestDf %>%
+  map_df(., ~str_extract(., "[A-E]")) ->TestDf
 ```
 
 Now, I will tidy up the grades...

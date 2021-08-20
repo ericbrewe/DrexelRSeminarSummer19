@@ -1,0 +1,154 @@
+---
+title: "DrexelRSeminarSummer21Week6MachineLearning"
+author: "Eric Brewe"
+date: "8/18/2021"
+output: html_document
+---
+
+The challenge for this week is to use prinicples of machine learning to find the "Best"  model for predicting post score.  
+
+I'll follow the Tidymodels page and see how it goes.
+
+```{r setup, include=FALSE}
+pacman::p_load(here, tidyverse, lubridate, lsr, tidymodels, parsnip, tayloRswift, rsample)
+
+FullData = readRDS(file = "data/CleanTestDataWithLunch.Rda")
+
+```
+
+```{r PrePlotting}
+
+FullData %>%
+  select(-ID) %>%
+  na.omit(Post) %>%
+  ggplot(aes(x = Post, y =  Q1, col = Lunch)) +
+  geom_point() + 
+  geom_smooth(method = lm, se = FALSE) +
+  scale_color_taylor()
+
+```
+
+```{r SetModel}
+
+lm_mod<- linear_reg() %>% set_engine("lm")
+
+lm_fit<- lm_mod %>%
+  fit(Post ~ ., data= ModData)
+
+tidy(lm_fit)
+
+```
+
+```{r TryBayes}
+
+prior_dist <- rstanarm::normal(location = 10, autoscale = TRUE)
+
+set.seed(327)
+
+bayes_mod <- 
+  linear_reg() %>%
+  set_engine("stan",
+             prior_intercept = prior_dist,
+             prior = prior_dist)
+
+bayes_fit <- 
+  bayes_mod %>%
+  fit(Post ~ ., data = ModData)
+
+library(broom.mixed)
+tidy(bayes_fit)
+
+```
+
+
+```{r split_into_training_test}
+
+library(rsample)
+set.seed(327)
+
+data_split <- initial_split(FullData, prop = 3/4)
+
+train_data <- training(data_split)
+test_data <- testing(data_split)
+```
+
+
+
+
+I don't get the idea of recipes, but I'll follow along because I think the people that wrote the package are really smart. 
+
+```{r CreateRecipe}
+
+post_recipe <-
+  recipe(Post ~ .,  data = train_data) %>%
+  update_role(ID, new_role = "ID") %>%
+  step_dummy(Lunch)
+
+post2_recipe <-
+  recipe(Post ~ Q1 + Q2 + ID + Lunch,  data = train_data) %>%
+  update_role(ID, new_role = "ID") %>%
+  step_dummy(Lunch)
+
+```
+
+
+Set up the workflow 
+```{r SetWorkflow}
+
+post_workflow <- 
+  workflow() %>%
+  add_model(lm_mod) %>%
+  add_recipe(post_recipe)
+
+post2_workflow <- 
+  workflow() %>%
+  add_model(lm_mod) %>%
+  add_recipe(post2_recipe)
+
+```
+
+
+```{r FitModelToTrainingData}
+
+post_fit <-
+  post_workflow %>%
+  fit(data = train_data)
+
+tidy(post_fit)
+
+post2_fit <-
+  post2_workflow %>%
+  fit(data = train_data)
+
+tidy(post2_fit)
+```
+
+Now that we have built a model, we can test it out on our test data and merge it back into the test data frame. 
+```{r PredictOnTestData}
+
+Pred_data <- predict(post_fit, test_data)
+
+Eval_Mod <- tibble(Post = test_data$Post, Pred = Pred_data$.pred)
+
+#Build up Mean Squared Error and Mean Absolute Errors to evaluate 
+Eval_Mod %>%
+  filter(Post != "NA", Pred != "NA") %>%
+  mutate(raw_diff = Post - Pred) %>%
+  mutate(raw_diff_sq = raw_diff**2) %>%
+  mutate(raw_diff_abs = abs(raw_diff)) %>%
+  summarise(MSE = mean(raw_diff_sq), MAE = mean(raw_diff_abs))
+
+Pred2_data <- predict(post2_fit, test_data)
+
+Eval_Mod2 <- tibble(Post = test_data$Post, Pred = Pred2_data$.pred)
+
+Eval_Mod2 %>%
+  filter(Post != "NA", Pred != "NA") %>%
+  mutate(raw_diff = Post - Pred) %>%
+  mutate(raw_diff_sq = raw_diff**2) %>%
+  mutate(raw_diff_abs = abs(raw_diff)) %>%
+  summarise(MSE = mean(raw_diff_sq), MAE = mean(raw_diff_abs))
+```
+
+
+
