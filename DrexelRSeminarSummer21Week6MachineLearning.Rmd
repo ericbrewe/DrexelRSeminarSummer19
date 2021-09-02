@@ -33,7 +33,7 @@ FullData %>%
 lm_mod<- linear_reg() %>% set_engine("lm")
 
 lm_fit<- lm_mod %>%
-  fit(Post ~ ., data= ModData)
+  fit(Post ~ ., data= FullData)
 
 tidy(lm_fit)
 
@@ -53,7 +53,7 @@ bayes_mod <-
 
 bayes_fit <- 
   bayes_mod %>%
-  fit(Post ~ ., data = ModData)
+  fit(Post ~ ., data = FullData)
 
 library(broom.mixed)
 tidy(bayes_fit)
@@ -148,6 +148,7 @@ Eval_Mod2 %>%
   mutate(raw_diff_sq = raw_diff**2) %>%
   mutate(raw_diff_abs = abs(raw_diff)) %>%
   summarise(MSE = mean(raw_diff_sq), MAE = mean(raw_diff_abs))
+
 ```
 
 
