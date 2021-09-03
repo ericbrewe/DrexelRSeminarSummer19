@@ -10,7 +10,7 @@ The challenge for this week is to use prinicples of machine learning to find the
 I'll follow the Tidymodels page and see how it goes.
 
 ```{r setup, include=FALSE}
-pacman::p_load(here, tidyverse, lubridate, lsr, tidymodels, parsnip, tayloRswift, rsample)
+pacman::p_load(here, tidyverse, lubridate, lsr, tidymodels, parsnip, tayloRswift, rsample) 
 
 FullData = readRDS(file = "data/CleanTestDataWithLunch.Rda")
 
